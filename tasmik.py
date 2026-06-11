@@ -1,103 +1,81 @@
 import streamlit as st
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 import datetime
 import pytz
-import gspread
-import os
-from oauth2client.service_account import ServiceAccountCredentials
+import json
 
-# 1. Konfigurasi Fail Semak Keselamatan Google Sheets
-scope = [
-    "https://spreadsheets.google.com/feeds",
-    "https://www.googleapis.com/auth/drive"
-]
+# Setup halaman Streamlit
+st.set_page_config(page_title="Rekod Tasmik Murid", layout="centered")
+
+# Pautan Skop Google Sheets API
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 
 @st.cache_resource
 def sambung_database():
     try:
-        # Kod Automatik: Minta Python cari jalan pintas folder semasa fail tasmik.py ini berada
-        folder_semasa = os.path.dirname(os.path.abspath(__file__))
-        path_credentials = os.path.join(folder_semasa, "credentials.json")
+        # Mengambil data string JSON terus dari Streamlit Secrets (Lebih Selamat)
+        creds_str = st.secrets["gspread_creds"]
         
-        # Sila semak jika fail wujud menggunakan nama alternatif jika cubaan pertama gagal
-        if not os.path.exists(path_credentials):
-            path_credentials = os.path.join(folder_semasa, "credentials.json.json")
-
-        # Membaca fail credentials menggunakan path mutlak
-        creds = ServiceAccountCredentials.from_json_keyfile_name(path_credentials, scope)
+        # Menukar teks string kepada format Python dictionary (JSON)
+        info = json.loads(creds_str)
+            
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(info, scope)
         client = gspread.authorize(creds)
         
         # Membuka Google Sheets bernama 'Rekod Tasmik Online'
         sheet = client.open("Rekod Tasmik Online").worksheet("Rekod_Tasmik")
         return sheet
     except Exception as e:
-        # Menampilkan ralat sebenar daripada sistem Google untuk tujuan 'debugging'
-        st.error(f"⚠️ Ralat Sistem Google: {e}")
+        st.error(f"⚠️ Ralat Sistem Google Cloud: {e}")
         return None
 
 # Panggil fungsi sambungan database
-db_sheet = sambung_database()
+sheet = sambung_database()
 
-# 2. Tetapan Paparan Aplikasi (Mobile-Friendly)
-st.set_page_config(page_title="Sistem Tasmik Online", layout="centered")
-st.title("📖 Rekod Tasmik Murid")
-st.write("Sistem Perekodan Google Sheets Secara Live")
-st.markdown("---")
+st.title("📋 Sistem Rekod Tasmik Murid")
+st.write("Sila isi maklumat bacaan murid di bawah. Data akan disimpan terus ke Google Sheets.")
 
-# Zon Waktu Malaysia untuk simpanan masa yang tepat
-kl_tz = pytz.timezone("Asia/Kuala_Lumpur")
-waktu_sekarang = datetime.datetime.now(kl_tz)
+if sheet is None:
+    st.warning("Sambungan ke pangkalan data gagal. Sila semak tetapan Streamlit Secrets anda.")
+else:
+    # --- Borang Input Murid ---
+    with st.form(key='borang_tasmik', clear_on_submit=True):
+        nama_murid = st.text_input("Nama Murid:")
+        
+        pilihan_bacaan = st.selectbox("Jenis Bacaan:", ["Al-Quran", "Iqra'"])
+        
+        # Input Surah/Iqra & Ayat/Halaman berdasarkan pilihan jenis bacaan
+        if pilihan_bacaan == "Al-Quran":
+            surah_bacaan = st.text_input("Nama Surah:", placeholder="Contoh: Al-Baqarah")
+            ayat_bacaan = st.text_input("Ayat Ke:", placeholder="Contoh: 1-10")
+        else:
+            surah_bacaan = st.selectbox("Iqra' Jilid:", ["Iqra' 1", "Iqra' 2", "Iqra' 3", "Iqra' 4", "Iqra' 5", "Iqra' 6"])
+            ayat_bacaan = st.text_input("Muka Surat:", placeholder="Contoh: 15")
+            
+        status_bacaan = st.radio("Status Kelancaran:", ["Lancar (Boleh Alih)", "Kurang Lancar (Ulang)"])
+        catatan = st.text_area("Catatan Tambahan (Jika ada):", placeholder="Contoh: Jaga hukum dengung")
+        
+        butang_hantar = st.form_submit_button(label="💾 Simpan Rekod Ke Google Sheets")
 
-# 3. Borang Input Guru
-kolum1, kolum2 = st.columns(2)
-with kolum1:
-    kelas = st.selectbox("Kelas", ["1B", "1A", "2B"])
-with kolum2:
-    minggu = st.number_input("Minggu Ke-", min_value=1, max_value=52, value=3)
-
-# Senarai Murid Statik
-senarai_murid = {
-    "1B": ["Daud", "Fatima", "Ali", "Zubair"],
-    "1A": ["Aisha", "Omar", "Khadijah"],
-    "2B": ["Muaz", "Hamzah", "Bilal"]
-}
-
-nama_pelajar = st.selectbox("Nama Pelajar", senarai_murid.get(kelas, []))
-
-st.markdown("### Kemas Kini Bacaan Baru")
-
-iqra = st.selectbox("Peringkat Bacaan", ["Iqra' 1", "Iqra' 2", "Iqra' 3", "Iqra' 4", "Iqra' 5", "Iqra' 6", "Al-Quran"])
-muka_surat = st.number_input("Muka Surat", min_value=1, max_value=604, value=1)
-sesi = st.radio("Sesi Bacaan", ["Tasmik Kelas", "Kelas Tambahan", "Ujian"], horizontal=True)
-
-# Tarikh lalai hari ini mengikut zon masa Malaysia
-tarikh_pilihan = st.date_input("Tarikh Rekod", waktu_sekarang.date())
-
-st.markdown("---")
-
-# 4. Proses Simpan Data Bila Butang Ditekan
-if st.button("💾 Simpan Rekod Ke Google Sheets", use_container_width=True):
-    if db_sheet is not None:
-        with st.spinner("Sedang menyimpan data secara online..."):
-            try:
-                # Sediakan susunan data mengikut ketetapan kolum Google Sheets
-                data_baru = [
-                    str(tarikh_pilihan),
-                    int(minggu),
-                    kelas,
-                    nama_pelajar,
-                    iqra,
-                    int(muka_surat),
-                    sesi,
-                    waktu_sekarang.strftime("%Y-%m-%d %H:%M:%S") # Masa kemas kini tepat
-                ]
-                
-                # Masukkan data ke baris paling bawah dalam Google Sheets
-                db_sheet.append_row(data_baru)
-                
-                st.success(f"🎉 Rekod bagi {nama_pelajar} (Kelas {kelas}) berjaya disimpan!")
-                st.balloons()
-                
-            except Exception as error:
-                st.error(f"Ralat semasa menghantar data: {error}")
-    else:
-        st.warning("Sambungan gagal. Sila semak mesej ralat kuning/merah di bahagian atas skrin untuk melihat puncanya.")
+    # --- Proses Simpan Data Selesai Klik Butang ---
+    if butang_hantar:
+        if nama_murid == "" or surah_bacaan == "" or ayat_bacaan == "":
+            st.error("⚠️ Sila pastikan Nama Murid, Surah/Iqra' dan Ayat/Muka Surat telah diisi!")
+        else:
+            with st.spinner("Sedang menyimpan data..."):
+                try:
+                    # Set zon masa peranti kepada Asia/Kuala_Lumpur
+                    zon_masa = pytz.timezone('Asia/Kuala_Lumpur')
+                    masa_sekarang = datetime.datetime.now(zon_masa).strftime("%Y-%m-%d %H:%M:%S")
+                    
+                    # Susun data mengikut turutan kolum di Google Sheets
+                    data_baru = [masa_sekarang, nama_murid, pilihan_bacaan, surah_bacaan, ayat_bacaan, status_bacaan, catatan]
+                    
+                    # Masukkan data ke baris paling bawah di Google Sheets
+                    sheet.append_row(data_baru)
+                    
+                    st.success(f"🎉 Rekod tasmik bagi {nama_murid} telah berjaya disimpan!")
+                    st.balloons()
+                except Exception as ralat:
+                    st.error(f"❌ Gagal menyimpan data. Ralat: {ralat}")
