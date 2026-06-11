@@ -14,12 +14,17 @@ scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/au
 @st.cache_resource
 def sambung_database():
     try:
-        # Membaca data daripada Streamlit Secrets mengikut format struktur dict
+        # Membaca data daripada Streamlit Secrets dengan pembersihan teks kunci
+        raw_key = st.secrets["private_key"]
+        
+        # Memastikan simbol \n dibaca sebagai baris baru yang sah oleh Google API
+        clean_key = raw_key.replace('\\n', '\n') if '\\n' in raw_key else raw_key.encode().decode('unicode_escape')
+        
         info = {
             "type": st.secrets["type"],
             "project_id": st.secrets["project_id"],
             "private_key_id": st.secrets["private_key_id"],
-            "private_key": st.secrets["private_key"].replace('\\n', '\n'), # Membaiki format baris baru kunci
+            "private_key": clean_key,
             "client_email": st.secrets["client_email"],
             "client_id": st.secrets["client_id"],
             "auth_uri": st.secrets["auth_uri"],
@@ -103,7 +108,7 @@ else:
         senarai_muka_surat = [f"Muka Surat {i}" for i in range(1, 101)]
 
         # --- BORANG INPUT ---
-        with st.form(key='borang_tasmik_skbp_final', clear_on_submit=False):
+        with st.form(key='borang_tasmik_skbp_final_v2', clear_on_submit=False):
             pilihan_tarikh = st.selectbox("📅 Kolum 3: Tarikh Bacaan", senarai_tarikh)
             pilihan_minggu = st.selectbox("📆 Kolum 4: Minggu", senarai_minggu)
             pilihan_tahap = st.selectbox("📖 Kolum 5: Pilihan Bacaan", senarai_bacaan)
