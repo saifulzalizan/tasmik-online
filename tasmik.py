@@ -5,7 +5,7 @@ import datetime
 import pytz
 import json
 
-# Setup halaman Streamlit
+# Setup halaman Streamlit (Dioptimumkan untuk Telefon)
 st.set_page_config(page_title="Sistem Rekod Tasmik", layout="centered")
 
 # Pautan Skop Google Sheets API
@@ -38,7 +38,7 @@ def sambung_database():
 sheet_rekod, sheet_data = sambung_database()
 
 st.title("📋 Sistem Rekod Tasmik Murid")
-st.write("Sila isi rekod bacaan murid menggunakan pilihan drop-down di bawah.")
+st.write("Sila isi rekod bacaan murid menggunakan pilihan di bawah.")
 
 if sheet_rekod is None or sheet_data is None:
     st.warning("Gagal menyambung ke Google Sheets. Sila semak tetapan Secrets atau nama tab Sheets anda.")
@@ -66,13 +66,14 @@ else:
     if not senarai_kelas:
         st.error("⚠️ Tiada data kelas ditemui di dalam tab 'Senarai_Murid'!")
     else:
-        # --- PENAPIS KELAS (DI LUAR BORANG) ---
+        # --- INPUT DI LUAR BORANG (PENTING: Memastikan drop-down telefon tidak terpotong) ---
         pilihan_kelas = st.selectbox("📁 Kolum 1: Pilih Kelas", senarai_kelas)
-        murid_dalam_kelas = sorted(peta_kelas_murid.get(pilihan_kelas, []))
-
-        # --- SET PILIHAN DROP-DOWN SEPERTI KEHENDAK ANDA ---
         
-        # Drop-down Tarikh: Menyediakan tarikh hari ini, semalam, dan kelmarin
+        murid_dalam_kelas = sorted(peta_kelas_murid.get(pilihan_kelas, []))
+        
+        pilihan_nama = st.selectbox("👤 Kolum 2: Nama Pelajar", murid_dalam_kelas)
+        
+        # --- SET PILIHAN DROP-DOWN LAIN ---
         zon_masa = pytz.timezone('Asia/Kuala_Lumpur')
         hari_ini = datetime.datetime.now(zon_masa)
         senarai_tarikh = [
@@ -81,19 +82,12 @@ else:
             (hari_ini - datetime.timedelta(days=2)).strftime("%Y-%m-%d")
         ]
         
-        # Drop-down Minggu: Minggu 1 hingga Minggu 45
         senarai_minggu = [f"Minggu {i}" for i in range(1, 46)]
-        
-        # Drop-down Tahap Bacaan
         senarai_bacaan = ["Iqra' 1", "Iqra' 2", "Iqra' 3", "Iqra' 4", "Iqra' 5", "Iqra' 6", "Al-Quran", "Telah Khatam"]
-        
-        # Drop-down Muka Surat: Nombor 1 hingga 100 (Boleh ditambah jika perlu)
         senarai_muka_surat = [f"Muka Surat {i}" for i in range(1, 101)]
 
-        # --- BORANG INPUT UTAMA ---
-        with st.form(key='borang_tasmik_baru', clear_on_submit=True):
-            
-            pilihan_nama = st.selectbox("👤 Kolum 2: Nama Pelajar", murid_dalam_kelas)
+        # --- BORANG INPUT UNTUK ELEMEN BACAAN & BUTANG ---
+        with st.form(key='borang_tasmik_telefon', clear_on_submit=False):
             
             pilihan_tarikh = st.selectbox("📅 Kolum 3: Tarikh Bacaan", senarai_tarikh)
             
@@ -125,7 +119,7 @@ else:
                         # Simpan ke tab Rekod_Tasmik
                         sheet_rekod.append_row(data_baru)
                         
-                        st.success(f"🎉 Rekod bagi {pilihan_nama} ({pilihan_kelas}) susunan baharu berjaya disimpan!")
+                        st.success(f"🎉 Rekod bagi {pilihan_nama} ({pilihan_kelas}) berjaya disimpan!")
                         st.balloons()
                     except Exception as ralat:
                         st.error(f"❌ Gagal menyimpan data. Ralat: {ralat}")
