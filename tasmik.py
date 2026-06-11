@@ -14,19 +14,26 @@ scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/au
 @st.cache_resource
 def sambung_database():
     try:
-        # Mengambil kunci keselamatan dari Streamlit Secrets
-        creds_str = st.secrets["gspread_creds"]
-        info = json.loads(creds_str)
+        # Membaca data daripada Streamlit Secrets mengikut format struktur dict
+        info = {
+            "type": st.secrets["type"],
+            "project_id": st.secrets["project_id"],
+            "private_key_id": st.secrets["private_key_id"],
+            "private_key": st.secrets["private_key"].replace('\\n', '\n'), # Membaiki format baris baru kunci
+            "client_email": st.secrets["client_email"],
+            "client_id": st.secrets["client_id"],
+            "auth_uri": st.secrets["auth_uri"],
+            "token_uri": st.secrets["token_uri"],
+            "auth_provider_x509_cert_url": st.secrets["auth_provider_x509_cert_url"],
+            "client_x509_cert_url": st.secrets["client_x509_cert_url"]
+        }
+        
         creds = ServiceAccountCredentials.from_json_keyfile_dict(info, scope)
         client = gspread.authorize(creds)
         
         # Membuka fail Google Sheets induk
         doc = client.open("Rekod Tasmik Online")
-        
-        # Tab 1: Tempat simpan rekod tasmik
         sheet_rekod = doc.worksheet("Rekod_Tasmik")
-        
-        # Tab 2: Sumber data (Kelas & Nama)
         sheet_data = doc.worksheet("Senarai_Murid")
         
         return sheet_rekod, sheet_data
@@ -37,29 +44,25 @@ def sambung_database():
 # Panggil fungsi sambungan database
 sheet_rekod, sheet_data = sambung_database()
 
-# ==============================================================================
-# 🌟 DI SINI PERUBAHAN BARU: BAHAGIAN PAPARAN LOGO SK BULOH POH & TAJUK TENGAH
-# ==============================================================================
+# --- BAHAGIAN PAPARAN LOGO SK BULOH POH & TAJUK ---
 url_logo_sekolah = "https://upload.wikimedia.org/wikipedia/ms/2/29/Sekolah_Kebangsaan_Buloh_Poh.jpg"
 
-col1, col2, col3 = st.columns([1, 1.2, 1]) # Menyediakan ruang lajur untuk letak gambar di tengah
+col1, col2, col3 = st.columns([1, 1.2, 1])
 with col2:
     try:
         st.image(url_logo_sekolah, use_container_width=True)
     except:
-        st.warning("⚠️ Gagal memuatkan imej logo. Sila semak sambungan internet.")
+        pass
 
-# Menggunakan HTML tulisan tengah (text-align: center) dan warna biru gelap (#1E3A8A)
-st.markdown("<h2 style='text-align: center; color: #1E3A8A;'>Sistem Rekod Tasmik Murid</h2>", unsafe_html=True)
-st.markdown("<h4 style='text-align: center; color: #4B5563;'>SK Buloh Poh</h4>", unsafe_html=True)
+st.title("📋 Sistem Rekod Tasmik Murid")
+st.subheader("SK Buloh Poh")
 st.write("---")
-# ==============================================================================
 
 if sheet_rekod is None or sheet_data is None:
-    st.warning("Gagal menyambung ke Google Sheets. Sila semak tetapan Secrets atau nama tab Sheets anda.")
+    st.warning("Gagal menyambung ke Google Sheets. Sila pastikan isi kotak Secrets telah dimasukkan mengikut format TOML yang betul.")
 else:
     # --- MEMBACA DATA KELAS & NAMA DARI TAB 'Senarai_Murid' ---
-    @st.cache_data(ttl=600)
+    @st.cache_data(ttl=300)
     def ambil_data_murid():
         try:
             semua_baris = sheet_data.get_all_records()
@@ -81,11 +84,9 @@ else:
     if not senarai_kelas:
         st.error("⚠️ Tiada data kelas ditemui di dalam tab 'Senarai_Murid'!")
     else:
-        # --- INPUT DI LUAR BORANG (Untuk keselesaan skrin telefon) ---
+        # --- INPUT DI LUAR BORANG ---
         pilihan_kelas = st.selectbox("📁 Kolum 1: Pilih Kelas", senarai_kelas)
-        
         murid_dalam_kelas = sorted(peta_kelas_murid.get(pilihan_kelas, []))
-        
         pilihan_nama = st.selectbox("👤 Kolum 2: Nama Pelajar", murid_dalam_kelas)
         
         # --- SET PILIHAN DROP-DOWN LAIN ---
@@ -101,17 +102,12 @@ else:
         senarai_bacaan = ["Iqra' 1", "Iqra' 2", "Iqra' 3", "Iqra' 4", "Iqra' 5", "Iqra' 6", "Al-Quran", "Telah Khatam"]
         senarai_muka_surat = [f"Muka Surat {i}" for i in range(1, 101)]
 
-        # --- BORANG INPUT UNTUK ELEMEN BACAAN & BUTANG ---
-        with st.form(key='borang_tasmik_skbp', clear_on_submit=False):
-            
+        # --- BORANG INPUT ---
+        with st.form(key='borang_tasmik_skbp_final', clear_on_submit=False):
             pilihan_tarikh = st.selectbox("📅 Kolum 3: Tarikh Bacaan", senarai_tarikh)
-            
             pilihan_minggu = st.selectbox("📆 Kolum 4: Minggu", senarai_minggu)
-            
             pilihan_tahap = st.selectbox("📖 Kolum 5: Pilihan Bacaan", senarai_bacaan)
-            
             pilihan_ms = st.selectbox("📄 Kolum 6: Muka Surat Bacaan", senarai_muka_surat)
-            
             butang_simpan = st.form_submit_button(label="💾 Simpan Rekod")
 
         # --- PROSES SIMPAN DATA KE GOOGLE SHEETS ---
@@ -121,7 +117,6 @@ else:
             else:
                 with st.spinner("Sedang menyimpan ke Google Sheets..."):
                     try:
-                        # Susun data TEPAT mengikut turutan kolum kehendak anda
                         data_baru = [
                             pilihan_kelas,   # Kolum 1
                             pilihan_nama,    # Kolum 2
@@ -130,10 +125,7 @@ else:
                             pilihan_tahap,   # Kolum 5
                             pilihan_ms       # Kolum 6
                         ]
-                        
-                        # Simpan ke tab Rekod_Tasmik
                         sheet_rekod.append_row(data_baru)
-                        
                         st.success(f"🎉 Rekod bagi {pilihan_nama} ({pilihan_kelas}) berjaya disimpan!")
                         st.balloons()
                     except Exception as ralat:
