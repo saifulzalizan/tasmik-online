@@ -6,7 +6,7 @@ import pytz
 import json
 
 # Setup halaman Streamlit (Dioptimumkan untuk Telefon)
-st.set_page_config(page_title="Sistem Rekod Tasmik", layout="centered")
+st.set_page_config(page_title="Sistem Rekod Tasmik SKBP", layout="centered")
 
 # Pautan Skop Google Sheets API
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -37,8 +37,23 @@ def sambung_database():
 # Panggil fungsi sambungan database
 sheet_rekod, sheet_data = sambung_database()
 
-st.title("📋 Sistem Rekod Tasmik Murid")
-st.write("Sila isi rekod bacaan murid menggunakan pilihan di bawah.")
+# ==============================================================================
+# 🌟 DI SINI PERUBAHAN BARU: BAHAGIAN PAPARAN LOGO SK BULOH POH & TAJUK TENGAH
+# ==============================================================================
+url_logo_sekolah = "https://upload.wikimedia.org/wikipedia/ms/2/29/Sekolah_Kebangsaan_Buloh_Poh.jpg"
+
+col1, col2, col3 = st.columns([1, 1.2, 1]) # Menyediakan ruang lajur untuk letak gambar di tengah
+with col2:
+    try:
+        st.image(url_logo_sekolah, use_container_width=True)
+    except:
+        st.warning("⚠️ Gagal memuatkan imej logo. Sila semak sambungan internet.")
+
+# Menggunakan HTML tulisan tengah (text-align: center) dan warna biru gelap (#1E3A8A)
+st.markdown("<h2 style='text-align: center; color: #1E3A8A;'>Sistem Rekod Tasmik Murid</h2>", unsafe_html=True)
+st.markdown("<h4 style='text-align: center; color: #4B5563;'>SK Buloh Poh</h4>", unsafe_html=True)
+st.write("---")
+# ==============================================================================
 
 if sheet_rekod is None or sheet_data is None:
     st.warning("Gagal menyambung ke Google Sheets. Sila semak tetapan Secrets atau nama tab Sheets anda.")
@@ -66,7 +81,7 @@ else:
     if not senarai_kelas:
         st.error("⚠️ Tiada data kelas ditemui di dalam tab 'Senarai_Murid'!")
     else:
-        # --- INPUT DI LUAR BORANG (PENTING: Memastikan drop-down telefon tidak terpotong) ---
+        # --- INPUT DI LUAR BORANG (Untuk keselesaan skrin telefon) ---
         pilihan_kelas = st.selectbox("📁 Kolum 1: Pilih Kelas", senarai_kelas)
         
         murid_dalam_kelas = sorted(peta_kelas_murid.get(pilihan_kelas, []))
@@ -87,7 +102,7 @@ else:
         senarai_muka_surat = [f"Muka Surat {i}" for i in range(1, 101)]
 
         # --- BORANG INPUT UNTUK ELEMEN BACAAN & BUTANG ---
-        with st.form(key='borang_tasmik_telefon', clear_on_submit=False):
+        with st.form(key='borang_tasmik_skbp', clear_on_submit=False):
             
             pilihan_tarikh = st.selectbox("📅 Kolum 3: Tarikh Bacaan", senarai_tarikh)
             
